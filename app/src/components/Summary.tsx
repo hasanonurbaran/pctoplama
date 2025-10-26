@@ -18,12 +18,28 @@ const labels: Record<CategoryKey, string> = {
 
 export default function Summary() {
   const selections = useAppStore((s) => s.selections);
+  const cart = useAppStore((s) => s.cart);
   const totalText = useAppStore((s) => s.totalText());
+  const cartTotalText = useAppStore((s) => s.cartTotalText());
   const clear = useAppStore((s) => s.clear);
+  const addToCart = useAppStore((s) => s.addToCart);
+  const removeFromCart = useAppStore((s) => s.removeFromCart);
+
+  const selectedCount = Object.values(selections).filter(Boolean).length;
+  const compareItems = cart.filter((ci) => !Object.values(selections).some((s: any) => s?.id === ci.item.id));
+
+  const handleAddAllToCart = () => {
+    Object.entries(selections).forEach(([key, item]) => {
+      if (item) {
+        addToCart(key as CategoryKey, item);
+      }
+    });
+  };
 
   return (
     <aside className="summary-responsive">
-      <h3>Özet</h3>
+      {/* SİSTEM ÖZETİ */}
+      <h3>📋 Sistem Özeti</h3>
       <div className="summary-list">
         {(Object.keys(labels) as CategoryKey[]).map((k) => {
           const it = (selections as any)[k];
@@ -46,6 +62,29 @@ export default function Summary() {
         <div className="summary-total-label">Toplam</div>
         <div className="summary-total-value">{totalText}</div>
       </div>
+
+      {selectedCount > 0 && (
+        <button
+          onClick={handleAddAllToCart}
+          style={{
+            marginTop: 12,
+            width: '100%',
+            background: 'var(--accent-800)',
+            border: '1px solid var(--accent-700)',
+            color: 'var(--text)',
+            padding: '10px 12px',
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-700)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--accent-800)')}
+        >
+          🛒 Sepete Ekle ({selectedCount})
+        </button>
+      )}
     </aside>
   );
 }
