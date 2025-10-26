@@ -17,7 +17,9 @@ export default function GenericPicker<T extends BaseItem>({ id, title, items, se
   const [brand, setBrand] = useState<string>('');
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
-  const [hideIncompatible, setHideIncompatible] = useState(true);
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [hideIncompatible, setHideIncompatible] = useState(false);
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -28,17 +30,29 @@ export default function GenericPicker<T extends BaseItem>({ id, title, items, se
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [items]);
 
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    (items || []).forEach((it) => {
+      if (Array.isArray(it.etiketler)) {
+        it.etiketler.forEach((tag: string) => set.add(tag));
+      }
+    });
+    return Array.from(set).sort();
+  }, [items]);
+
   const filtered = useMemo(() => {
     const list = (items || []).filter((it) => {
       if (brand && it.marka !== brand) return false;
       if (minPrice && it.fiyat_try < Number(minPrice)) return false;
       if (maxPrice && it.fiyat_try > Number(maxPrice)) return false;
-      if (it.stok?.durum !== 'in_stock') return false;
-      if (hideIncompatible && isCompatible && !isCompatible(it)) return false;
+      if (selectedTags.size > 0 && Array.isArray(it.etiketler)) {
+        const hasTag = Array.from(selectedTags).some((tag) => it.etiketler.includes(tag));
+        if (!hasTag) return false;
+      }
       return true;
     });
     return list;
-  }, [items, brand, minPrice, maxPrice, hideIncompatible, isCompatible]);
+  }, [items, brand, minPrice, maxPrice, selectedTags]);
 
   const selectedIds = useMemo(() => Object.keys(checked).filter((k) => checked[k]), [checked]);
   const selectedItems = useMemo(() => {
@@ -51,10 +65,26 @@ export default function GenericPicker<T extends BaseItem>({ id, title, items, se
     setChecked((prev) => ({ ...prev, [id]: value }));
   };
 
+  const toggleTag = (tag: string) => {
+    const newTags = new Set(selectedTags);
+    if (newTags.has(tag)) {
+      newTags.delete(tag);
+    } else {
+      newTags.add(tag);
+    }
+    setSelectedTags(newTags);
+  };
+
   const addAllToCart = () => {
     if (!onAddToCart || selectedItems.length === 0) return;
     selectedItems.forEach((it) => onAddToCart(it));
     setChecked({});
+  };
+
+  const getDisabledReason = (it: T): string | undefined => {
+    if (it.stok?.durum !== 'in_stock') return 'Stokta yok';
+    if (isCompatible && !isCompatible(it)) return `Bu ürün seçili parçalarla uyumlu değil`;
+    return undefined;
   };
 
   return (
@@ -75,21 +105,67 @@ export default function GenericPicker<T extends BaseItem>({ id, title, items, se
           <input aria-label="Max Fiyat" type="number" inputMode="numeric" placeholder="Max ₺"
             value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)}
             style={{ background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border)', padding: '8px 10px', borderRadius: 8, width: 110 }} />
-          <button onClick={() => { setBrand(''); setMinPrice(''); setMaxPrice(''); }}
+          <button onClick={() => { setBrand(''); setMinPrice(''); setMaxPrice(''); setSelectedTags(new Set()); }}
             style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--text)' }}>Sıfırla</button>
+          {isCompatible && (
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, color: '#9ca3af' }}>
+              <input type="checkbox" checked={hideIncompatible} onChange={(e) => setHideIncompatible(e.target.checked)} />
+              Uyumsuzları gizle
+            </label>
+          )}
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, color: '#9ca3af' }}>
-            <input type="checkbox" checked={hideIncompatible} onChange={(e) => setHideIncompatible(e.target.checked)} />
-            Uyumsuzları gizle
+            <input type="checkbox" checked={showOutOfStock} onChange={(e) => setShowOutOfStock(e.target.checked)} />
+            Stok dışı göster
           </label>
         </div>
       </div>
+
+      {allTags.length > 0 && (
+        <div style={{ marginBottom: 16, padding: 12, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8 }}>
+          <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 8 }}>Özellikler:</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                style={{
+                  background: selectedTags.has(tag) ? 'var(--accent-800)' : 'transparent',
+                  border: selectedTags.has(tag) ? '1px solid var(--accent-700)' : '1px solid var(--border)',
+                  color: 'var(--text)',
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  transition: 'background 0.2s, border-color 0.2s',
+                }}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-        {filtered.map((it) => {
+        {(items || []).map((it) => {
           const comp = isCompatible ? isCompatible(it) : true;
-          const disabled = it.stok?.durum !== 'in_stock' || !comp;
+          const isOutOfStock = it.stok?.durum !== 'in_stock';
+          const disabled = isOutOfStock || !comp;
+          
+          // Filtreleme: marka, fiyat, etiketler
+          const inFiltered = filtered.includes(it);
+          
+          // Görünürlük: show toggles ile kontrol et
+          const shouldShow = inFiltered && (
+            (!hideIncompatible || comp) && 
+            (showOutOfStock || !isOutOfStock)
+          );
+          
+          if (!shouldShow) return null;
+
           return (
             <div key={it.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <ItemCard item={it} disabled={disabled} selected={!!checked[it.id]} onSelect={() => {}} />
+              <ItemCard item={it} disabled={disabled} disabledReason={getDisabledReason(it)} selected={!!checked[it.id]} onSelect={() => {}} />
               {onAddToCart && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input
@@ -99,15 +175,27 @@ export default function GenericPicker<T extends BaseItem>({ id, title, items, se
                     disabled={disabled}
                     checked={!!checked[it.id]}
                     onChange={(e) => toggle(it.id, e.target.checked)}
-                    style={{ width: 16, height: 16 }}
+                    style={{ width: 16, height: 16, cursor: disabled ? 'not-allowed' : 'pointer' }}
                   />
-                  <span style={{ fontSize: 12, color: '#9ca3af' }}>Sepete eklemek veya ürünleri karşılaştırmak için işaretle</span>
+                  <span style={{ fontSize: 12, color: disabled ? '#606060' : '#9ca3af' }}>Sepete eklemek veya ürünleri karşılaştırmak için işaretle</span>
                 </div>
               )}
             </div>
           );
         })}
-        {!filtered.length && (
+        {!(items || []).length && (
+          <div style={{ color: '#9ca3af' }}>Yükleniyor...</div>
+        )}
+        {(items || []).length > 0 && (items || []).filter((it) => {
+          const inFiltered = filtered.includes(it);
+          const comp = isCompatible ? isCompatible(it) : true;
+          const isOutOfStock = it.stok?.durum !== 'in_stock';
+          const shouldShow = inFiltered && (
+            (!hideIncompatible || comp) && 
+            (showOutOfStock || !isOutOfStock)
+          );
+          return shouldShow;
+        }).length === 0 && (
           <div style={{ color: '#9ca3af' }}>Kriterlere uygun ürün bulunamadı.</div>
         )}
       </div>
