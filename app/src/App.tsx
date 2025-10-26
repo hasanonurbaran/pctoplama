@@ -6,6 +6,7 @@ import type { Anakart, Depolama, Fare, Gpu, Islemci, Kasa, Klavye, Monitor, Psu,
 import GenericPicker from './components/Picker/GenericPicker';
 import Header from './components/Header';
 import Hero from './components/Hero';
+import Summary from './components/Summary';
 import { cpuMatchesBoard, ramMatchesBoard, gpuMatchesBoard, psuMatchesCpuGpu, caseMatchesBoardGpuPsu, coolerMatchesCpuCase, storageMatchesBoard } from './utils/compat';
 
 function App() {
@@ -27,9 +28,10 @@ function App() {
   }, []);
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: 16, color: '#e5e7eb' }}>
+    <div>
       <Header loading={loading} err={err} />
-      <main>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, maxWidth: 1400, margin: '0 auto', padding: 16 }}>
+        <main style={{ minWidth: 0 }}>
           <Hero />
           <GenericPicker<Anakart>
             id="anakart"
@@ -136,7 +138,13 @@ function App() {
             isCompatible={(it) => coolerMatchesCpuCase(it, sel.islemci, sel.kasa)}
             onAddToCart={(it) => useAppStore.getState().addToCart('islemci_sogutucu', it)}
           />
-      </main>
+        </main>
+
+        {/* Sağ Sidebar - Summary */}
+        <aside>
+          <Summary />
+        </aside>
+      </div>
     </div>
   );
 }

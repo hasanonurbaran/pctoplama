@@ -20,6 +20,17 @@ export default function Summary() {
   const selections = useAppStore((s) => s.selections);
   const totalText = useAppStore((s) => s.totalText());
   const clear = useAppStore((s) => s.clear);
+  const addToCart = useAppStore((s) => s.addToCart);
+
+  const selectedCount = Object.values(selections).filter(Boolean).length;
+
+  const handleAddAllToCart = () => {
+    Object.entries(selections).forEach(([key, item]) => {
+      if (item) {
+        addToCart(key as CategoryKey, item);
+      }
+    });
+  };
 
   return (
     <aside className="summary-responsive">
@@ -46,6 +57,29 @@ export default function Summary() {
         <div className="summary-total-label">Toplam</div>
         <div className="summary-total-value">{totalText}</div>
       </div>
+
+      {selectedCount > 0 && (
+        <button
+          onClick={handleAddAllToCart}
+          style={{
+            marginTop: 12,
+            width: '100%',
+            background: 'var(--accent-800)',
+            border: '1px solid var(--accent-700)',
+            color: 'var(--text)',
+            padding: '10px 12px',
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-700)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--accent-800)')}
+        >
+          🛒 Sepete Ekle ({selectedCount})
+        </button>
+      )}
     </aside>
   );
 }

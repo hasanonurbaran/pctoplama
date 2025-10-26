@@ -174,7 +174,13 @@ export default function GenericPicker<T extends BaseItem>({ id, title, items, se
                     type="checkbox"
                     disabled={disabled}
                     checked={!!checked[it.id]}
-                    onChange={(e) => toggle(it.id, e.target.checked)}
+                    onChange={(e) => {
+                      toggle(it.id, e.target.checked);
+                      if (e.target.checked) {
+                        onSelect(it);
+                        onAddToCart(it);
+                      }
+                    }}
                     style={{ width: 16, height: 16, cursor: disabled ? 'not-allowed' : 'pointer' }}
                   />
                   <span style={{ fontSize: 12, color: disabled ? '#606060' : '#9ca3af' }}>Sepete eklemek veya ürünleri karşılaştırmak için işaretle</span>
